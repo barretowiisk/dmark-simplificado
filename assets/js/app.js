@@ -251,19 +251,26 @@ async function checkCurrentDns() {
     const latest = [...domainReports].sort((a, b) => b.end - a.end)[0];
     const selectors = uniqueDkimSelectors(domainReports);
     const [dmarcResponse, spfResponse, dkimResponses] = await Promise.all([
-      queryDns(`_dmarc.${domain}`, "TXT"),
-      queryDns(domain, "TXT"),
-      Promise.all(selectors.map(async (item) => ({ ...item, response: await queryDns(`${item.selector}._domainkey.${item.domain}`, "TXT") })))
+      queryDnsSafe(`_dmarc.${domain}`, "TXT"),
+      queryDnsSafe(domain, "TXT"),
+      Promise.all(selectors.map(async (item) => ({ ...item, response: await queryDnsSafe(`${item.selector}._domainkey.${item.domain}`, "TXT") })))
     ]);
+    const successfulQueries = [dmarcResponse, spfResponse, ...dkimResponses.map((item) => item.response)].filter((response) => !response.error);
+    if (!successfulQueries.length) {
+      const details = dmarcResponse.error || spfResponse.error || "conexão recusada";
+      throw new Error(details);
+    }
     renderDnsComparison(domain, latest, dmarcResponse, spfResponse, dkimResponses);
     $("#dnsResults").hidden = false;
     $("#dnsStatus").className = "dns-status success";
-    $("#dnsStatus").textContent = `Consulta concluída em ${new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" }).format(new Date())}.`;
+    const resolvers = [...new Set(successfulQueries.map((response) => response.resolver).filter(Boolean))];
+    const failedCount = [dmarcResponse, spfResponse, ...dkimResponses.map((item) => item.response)].filter((response) => response.error).length;
+    $("#dnsStatus").textContent = `Consulta concluída via ${resolvers.join(" e ")} em ${new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" }).format(new Date())}${failedCount ? `; ${failedCount} consulta(s) individual(is) falharam` : ""}.`;
   } catch (error) {
     console.error("Falha na consulta DNS:", error);
     $("#dnsStatus").className = "dns-status error";
     $("#dnsStatus").textContent = navigator.onLine
-      ? "Os resolvedores DNS não responderam ou a conexão foi bloqueada pelo navegador. Recarregue a página e tente novamente."
+      ? `Os resolvedores DNS não responderam ou a conexão foi bloqueada. Detalhe: ${error.message || "erro de rede"}.`
       : "Você está offline. O relatório continua disponível, mas a comparação DNS requer internet.";
   } finally {
     button.disabled = false;
@@ -274,24 +281,35 @@ async function checkCurrentDns() {
 async function queryDns(name, type) {
   if (!isDnsName(name)) throw new Error("Nome DNS inválido");
   const resolvers = [
+    ...(location.protocol === "http:" || location.protocol === "https:" ? [{ name: "Proxy DNS do site", url: "/api/dns", headers: {} }] : []),
     { name: "Google Public DNS", url: "https://dns.google/resolve", headers: {} },
     { name: "Cloudflare DNS", url: "https://cloudflare-dns.com/dns-query", headers: { accept: "application/dns-json" } }
   ];
   let lastError;
   for (const resolver of resolvers) {
     try {
-      const url = new URL(resolver.url);
+      const url = new URL(resolver.url, window.location.href);
       url.searchParams.set("name", name);
       url.searchParams.set("type", type);
-      const response = await fetchWithTimeout(url, { headers: resolver.headers }, 10000);
+      url.searchParams.set("cd", "false");
+      url.searchParams.set("do", "false");
+      const response = await fetchWithTimeout(url, { headers: resolver.headers, mode: "cors", cache: "no-store", credentials: "omit", referrerPolicy: "no-referrer" }, 10000);
       if (!response.ok) throw new Error(`${resolver.name}: HTTP ${response.status}`);
       const payload = await response.json();
-      return { resolver: resolver.name, status: payload.Status, answers: (payload.Answer || []).filter((answer) => answer.type === 16).map((answer) => normalizeTxt(answer.data)) };
+      return { resolver: payload.resolver || resolver.name, status: payload.Status, answers: (payload.Answer || []).filter((answer) => answer.type === 16).map((answer) => normalizeTxt(answer.data)) };
     } catch (error) {
       lastError = error;
     }
   }
   throw lastError || new Error("Nenhum resolvedor DNS respondeu");
+}
+
+async function queryDnsSafe(name, type) {
+  try { return await queryDns(name, type); }
+  catch (error) {
+    console.warn(`Consulta DNS indisponível para ${name}:`, error);
+    return { status: null, answers: [], error: error.message || "erro de rede" };
+  }
 }
 
 async function fetchWithTimeout(url, options, timeout) {
@@ -310,11 +328,15 @@ function renderDnsComparison(domain, latest, dmarcResponse, spfResponse, dkimRes
 
   setDnsCard("#dnsDmarcTitle", "#dnsDmarcText", "#dnsDmarcRecord", dmarc
     ? [samePolicy ? "Sem alteração desde o relatório" : "Configuração diferente do relatório", latest ? `Atual: ${policyName[currentPolicy] || currentPolicy} em ${currentPercent}%. Relatório mais recente: ${policyName[latest.policy] || latest.policy} em ${latest.percentage}%.` : "Registro DMARC encontrado.", dmarc, samePolicy ? "ok" : "warn"]
-    : ["Registro DMARC não encontrado", `Não foi localizado um TXT válido em _dmarc.${domain}.`, "", "error"]);
+    : dmarcResponse.error
+      ? ["Consulta DMARC indisponível", dmarcResponse.error, "", "error"]
+      : ["Registro DMARC não encontrado", `Não foi localizado um TXT válido em _dmarc.${domain}.`, "", "error"]);
 
   setDnsCard("#dnsSpfTitle", "#dnsSpfText", "#dnsSpfRecord", spf
     ? ["Registro SPF publicado", "O domínio possui uma política SPF atual. A existência do registro não garante que todas as fontes estejam autorizadas.", spf, "ok"]
-    : ["Registro SPF não encontrado", "Não foi localizado um TXT iniciado por v=spf1 no domínio.", "", "warn"]);
+    : spfResponse.error
+      ? ["Consulta SPF indisponível", spfResponse.error, "", "error"]
+      : ["Registro SPF não encontrado", "Não foi localizado um TXT iniciado por v=spf1 no domínio.", "", "warn"]);
 
   const validDkim = dkimResponses.filter((item) => item.response.answers.some((record) => /\bv=DKIM1\b|\bp=/i.test(record)));
   $("#dnsDkimTitle").textContent = dkimResponses.length ? `${validDkim.length} de ${dkimResponses.length} seletores encontrados` : "Nenhum seletor disponível";
@@ -322,7 +344,8 @@ function renderDnsComparison(domain, latest, dmarcResponse, spfResponse, dkimRes
   const list = $("#dnsDkimRecords");
   list.innerHTML = dkimResponses.map((item) => {
     const found = item.response.answers.some((record) => /\bv=DKIM1\b|\bp=/i.test(record));
-    return `<span class="dns-selector ${found ? "ok" : "missing"}"><b>${escapeHtml(item.selector)}</b><small>${found ? "chave publicada" : "não encontrado"}</small></span>`;
+    const label = item.response.error ? "consulta indisponível" : found ? "chave publicada" : "não encontrado";
+    return `<span class="dns-selector ${found ? "ok" : "missing"}"><b>${escapeHtml(item.selector)}</b><small>${label}</small></span>`;
   }).join("");
   list.closest("article").className = `dns-dkim-card ${!dkimResponses.length ? "neutral" : validDkim.length === dkimResponses.length ? "dns-ok" : "dns-warn"}`;
 }

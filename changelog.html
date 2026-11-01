@@ -10,12 +10,21 @@
   <link rel="stylesheet" href="assets/css/style.css">
   <link rel="stylesheet" href="assets/css/theme.css">
   <link rel="stylesheet" href="assets/css/changelog.css">
+  <style>.release+.release{margin-top:15px}</style>
 </head>
 <body>
   <div class="glow g1"></div><div class="glow g2"></div>
   <header><a class="brand" href="index.html"><img class="brand-icon" src="assets/images/favicon.svg" alt=""> DMARC <b>Simplificado</b></a><div class="header-actions"><a class="back-link" href="index.html">← Voltar ao painel</a><button class="theme-toggle" id="themeToggle" type="button" aria-label="Alternar tema"><span class="sun">☀</span><span class="moon">☾</span></button></div></header>
   <main class="changelog-page">
-    <section class="changelog-hero"><span class="kicker">EVOLUÇÃO DO PROJETO</span><h1>Histórico de versões</h1><p>Acompanhe as funcionalidades, melhorias de privacidade e decisões que constroem o DMARC Simplificado.</p><span class="current-version">Versão atual · 1.0.0</span></section>
+    <section class="changelog-hero"><span class="kicker">EVOLUÇÃO DO PROJETO</span><h1>Histórico de versões</h1><p>Acompanhe as funcionalidades, melhorias de privacidade e decisões que constroem o DMARC Simplificado.</p><span class="current-version">Versão atual · 1.1.0</span></section>
+    <article class="release">
+      <aside><span class="release-tag">v1.1.0</span><time datetime="2026-11-01">1º de novembro de 2026</time><b>Cloudflare Workers</b></aside>
+      <div class="release-content"><section><h2>Hospedagem e DNS</h2><ul><li>Suporte oficial a Static Assets no Cloudflare Workers.</li><li>Proxy DNS de mesma origem em /api/dns, eliminando bloqueios CORS.</li><li>Cache curto, validação das consultas e fallback entre resolvedores.</li><li>Cabeçalhos de segurança e exclusão dos relatórios no deploy.</li></ul></section></div>
+    </article>
+    <article class="release">
+      <aside><span class="release-tag">v1.0.1</span><time datetime="2026-11-01">1º de novembro de 2026</time><b>Correção da consulta DNS</b></aside>
+      <div class="release-content"><section><h2>Confiabilidade</h2><ul><li>Google Public DNS como resolvedor principal e Cloudflare como alternativa.</li><li>Resultados parciais preservados quando apenas uma consulta falha.</li><li>Erros técnicos visíveis e timeout controlado.</li><li>Atualização dos scripts sem interferência do cache do navegador.</li></ul></section></div>
+    </article>
     <article class="release">
       <aside><span class="release-tag">v1.0.0</span><time datetime="2026-11-01">1º de novembro de 2026</time><b>Primeira versão estável</b></aside>
       <div class="release-content">
@@ -26,7 +35,7 @@
     </article>
     <section class="versioning-note"><h2>Como as versões funcionam</h2><p>Usamos o formato <b>MAJOR.MINOR.PATCH</b>: mudanças incompatíveis alteram o primeiro número, novas funcionalidades compatíveis alteram o segundo e correções alteram o terceiro.</p></section>
   </main>
-  <footer><span>©2026 <a class="version-link" href="changelog.html" title="Ver histórico de versões">DMARC SIMPLIFICADO v1.0.0</a>. Todos os direitos reservados.</span><span>Powered by <a href="https://saobarreto.com.br" target="_blank" rel="noopener noreferrer">São Barreto Consultoria TI</a></span></footer>
-  <script src="assets/js/theme.js"></script>
+  <footer><span>©2026 <a class="version-link" href="changelog.html" title="Ver histórico de versões">DMARC SIMPLIFICADO v1.1.0</a>. Todos os direitos reservados.</span><span>Powered by <a href="https://saobarreto.com.br" target="_blank" rel="noopener noreferrer">São Barreto Consultoria TI</a></span></footer>
+  <script src="assets/js/theme.js?v=1.1.0"></script>
 </body>
 </html>

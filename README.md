@@ -10,7 +10,7 @@ Um painel moderno, privado e fácil de usar para interpretar relatórios agregad
 ![CSS](https://img.shields.io/badge/CSS3-responsivo-1572B6?logo=css3&logoColor=white)
 ![JavaScript](https://img.shields.io/badge/JavaScript-sem_dependências-F7DF1E?logo=javascript&logoColor=111)
 ![Privacidade](https://img.shields.io/badge/privacidade-processamento_local-17A873)
-![Versão](https://img.shields.io/badge/versão-1.0.0-7455E8)
+![Versão](https://img.shields.io/badge/versão-1.1.0-7455E8)
 
 </div>
 
@@ -121,6 +121,9 @@ painel-reporte-dominio/
 ├── changelog.html
 ├── CHANGELOG.md
 ├── VERSION
+├── worker.js
+├── wrangler.jsonc
+├── .assetsignore
 ├── assets/
 │   ├── css/
 │   │   ├── style.css
@@ -137,9 +140,28 @@ painel-reporte-dominio/
 
 Os relatórios usados durante o desenvolvimento não fazem parte do projeto. Arquivos `*.zip` e `*.xml.gz` são ignorados pelo Git para reduzir o risco de publicação acidental de dados reais.
 
+## Publicação no Cloudflare Workers
+
+O projeto inclui suporte a Cloudflare Workers Static Assets. O Worker serve a página e disponibiliza o proxy DNS em `/api/dns`, sem banco de dados ou armazenamento de relatórios.
+
+Com Node.js e Wrangler disponíveis:
+
+```bash
+npx wrangler deploy
+```
+
+O arquivo `.assetsignore` impede que relatórios, Git, documentação interna e configurações sejam publicados como conteúdo estático. Depois do deploy, confirme:
+
+1. que o painel abre pela URL fornecida pela Cloudflare;
+2. que o rodapé mostra a versão atual;
+3. que a rota `/api/dns?name=_dmarc.example.com&type=TXT` retorna JSON;
+4. que **Verificar configuração DNS atual** apresenta DMARC, SPF e DKIM.
+
+Durante o desenvolvimento com Live Server, `/api/dns` não existe. Nesse caso, o navegador ainda tenta os resolvedores públicos diretamente como fallback.
+
 ## Versionamento
 
-A versão atual é **1.0.0**. O projeto segue Versionamento Semântico e mantém o histórico em [CHANGELOG.md](CHANGELOG.md) e na página visual [changelog.html](changelog.html).
+A versão atual é **1.1.0**. O projeto segue Versionamento Semântico e mantém o histórico em [CHANGELOG.md](CHANGELOG.md) e na página visual [changelog.html](changelog.html).
 
 ## Privacidade
 

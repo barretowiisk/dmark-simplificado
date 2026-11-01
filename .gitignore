@@ -1,2 +1,4 @@
 *.xml.gz
 *.zip
+.wrangler/
+node_modules/

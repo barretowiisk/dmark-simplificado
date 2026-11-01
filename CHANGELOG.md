@@ -4,6 +4,35 @@ Todas as mudanças relevantes do **DMARC Simplificado** são documentadas neste 
 
 O projeto utiliza [Versionamento Semântico](https://semver.org/lang/pt-BR/), no formato `MAJOR.MINOR.PATCH`.
 
+## [1.1.0] — 2026-11-01
+
+### Adicionado
+
+- suporte oficial à implantação no Cloudflare Workers com Static Assets;
+- proxy DNS de mesma origem em `/api/dns`;
+- validação de nomes DNS e restrição a consultas TXT;
+- cache de 60 segundos para respostas DNS;
+- fallback do Worker entre Cloudflare DNS e Google Public DNS;
+- cabeçalhos de segurança para os arquivos hospedados;
+- configuração `wrangler.jsonc` e proteção de assets via `.assetsignore`.
+
+### Alterado
+
+- o navegador consulta primeiro o proxy do próprio site;
+- consultas diretas permanecem como fallback para desenvolvimento local;
+- relatórios compactados, Git e arquivos internos são excluídos do deploy.
+
+## [1.0.1] — 2026-11-01
+
+### Corrigido
+
+- consulta DNS alterada para tolerar falhas parciais;
+- uma falha de seletor DKIM não cancela mais os resultados de DMARC e SPF;
+- Google Public DNS definido como resolvedor principal, com Cloudflare como fallback;
+- mensagens de erro agora exibem o motivo técnico da falha;
+- timeout, política CORS explícita e cache desabilitado nas consultas;
+- parâmetros de versão adicionados aos scripts para evitar JavaScript antigo no cache.
+
 ## [1.0.0] — 2026-11-01
 
 ### Adicionado
