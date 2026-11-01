@@ -1,65 +1,140 @@
+<div align="center">
+
 # DMARC Simplificado
 
-> Relatórios técnicos de e-mail traduzidos em respostas claras, visuais e acionáveis.
+### Transforme relatórios técnicos de e-mail em decisões claras.
 
-O **DMARC Simplificado** é um painel web gratuito para leitura de relatórios agregados DMARC de diferentes provedores. Arraste um arquivo `.xml`, `.xml.gz` ou `.zip` e a aplicação apresenta, em português, o estado da autenticação, as fontes de envio, possíveis falhas e ações recomendadas.
+Um painel moderno, privado e fácil de usar para interpretar relatórios agregados DMARC diretamente no navegador.
 
-Todo o processamento acontece **localmente no navegador**. Nenhum relatório é enviado, armazenado ou compartilhado com servidores.
+![HTML](https://img.shields.io/badge/HTML5-semântico-E34F26?logo=html5&logoColor=white)
+![CSS](https://img.shields.io/badge/CSS3-responsivo-1572B6?logo=css3&logoColor=white)
+![JavaScript](https://img.shields.io/badge/JavaScript-sem_dependências-F7DF1E?logo=javascript&logoColor=111)
+![Privacidade](https://img.shields.io/badge/privacidade-processamento_local-17A873)
 
-## Recursos
+</div>
 
-- resumo visual com pontuação e diagnóstico geral;
-- volume de mensagens, percentual autenticado e fontes com atenção;
-- leitura das políticas `none`, `quarantine` e `reject`;
-- detalhamento por IP com resultados DKIM, SPF e disposição;
-- recomendações em linguagem simples e glossário técnico;
-- suporte a XML, GZIP e ZIP, sem backend ou banco de dados;
-- layout responsivo para desktop e celular.
-- temas claro e escuro, respeitando a preferência do sistema e salvando a escolha localmente.
+---
 
-## Executar localmente
+## Sobre o projeto
 
-Clone o repositório e abra `index.html` em um navegador moderno. Você também pode iniciar um servidor local:
+Relatórios DMARC costumam chegar como arquivos compactados repletos de informações técnicas. O **DMARC Simplificado** transforma esses dados em uma experiência visual e acessível: você seleciona o relatório e recebe um diagnóstico com métricas, explicações e próximos passos.
 
-```bash
-python -m http.server 8080
-```
+O arquivo é processado localmente. Seu conteúdo não é enviado, armazenado ou compartilhado com nenhum servidor.
 
-Acesse `http://localhost:8080` e envie um relatório. O repositório inclui o arquivo de exemplo `zohomail.com!saobarreto.com.br!1793170800!1793257200.xml.gz`.
+## Destaques
 
-## Estrutura
+- diagnóstico geral com pontuação de proteção;
+- volume de mensagens e taxa de autenticação;
+- resultados DKIM e SPF detalhados por IP;
+- interpretação das políticas `none`, `quarantine` e `reject`;
+- recomendações práticas em linguagem simples;
+- identificação visual de provedores conhecidos;
+- suporte a relatórios de Google, Zoho, Microsoft, Yahoo e outros remetentes compatíveis;
+- leitura de `.xml`, `.xml.gz` e `.zip`;
+- temas claro e escuro com preferência salva;
+- layout responsivo para computador, tablet e celular;
+- funcionamento sem backend, banco de dados ou instalação de pacotes.
+
+## Como usar
+
+Não é necessário iniciar um servidor local.
+
+1. Baixe ou clone este repositório.
+2. Abra o arquivo `index.html` em um navegador moderno.
+3. Arraste o relatório DMARC para a área indicada ou clique em **Escolher arquivo**.
+4. Consulte o diagnóstico, as fontes de envio e as ações recomendadas.
+
+> Para descompactação no navegador, utilize uma versão recente do Chrome, Edge, Firefox ou Safari.
+
+## Formatos aceitos
+
+| Formato | Descrição |
+| --- | --- |
+| `.xml` | Relatório DMARC já descompactado |
+| `.xml.gz` | Formato GZIP comum em anexos de relatórios |
+| `.zip` | Pacote ZIP contendo ao menos um arquivo XML |
+
+O leitor utiliza o diretório central do ZIP e aceita variações comuns de compactação, inclusive pacotes com *data descriptor*.
+
+## Como a análise funciona
 
 ```text
+Arquivo selecionado
+       ↓
+Descompactação em memória
+       ↓
+Validação e leitura do XML
+       ↓
+Análise de DKIM, SPF e política DMARC
+       ↓
+Diagnóstico visual e ações recomendadas
+```
+
+A lógica segue a estrutura padronizada dos relatórios agregados DMARC. O reconhecimento não depende do nome do arquivo nem de um provedor específico.
+
+## Provedores reconhecidos visualmente
+
+O painel possui identificação para provedores conhecidos, incluindo:
+
+- Google;
+- Zoho Mail;
+- Microsoft e Outlook;
+- Yahoo;
+- Cloudflare;
+- Fastmail;
+- Proton Mail;
+- Amazon Web Services;
+- Apple;
+- Mail.ru.
+
+Provedores fora dessa lista continuam sendo analisados normalmente e recebem uma identificação visual genérica baseada no nome da organização. Os logos conhecidos são carregados do pacote [Simple Icons](https://simpleicons.org/) via CDN; se não houver conexão, o painel utiliza automaticamente o monograma local.
+
+## Estrutura do projeto
+
+```text
+painel-reporte-dominio/
 ├── index.html
 ├── assets/
-│   ├── css/style.css
-│   ├── css/theme.css
-│   └── js/app.js
-├── zohomail.com!...xml.gz
+│   ├── css/
+│   │   ├── style.css
+│   │   └── theme.css
+│   └── js/
+│       ├── app.js
+│       └── provider.js
+├── .gitignore
 └── README.md
 ```
 
-## Como funciona
+Os relatórios usados durante o desenvolvimento não fazem parte do projeto. Arquivos `*.zip` e `*.xml.gz` são ignorados pelo Git para reduzir o risco de publicação acidental de dados reais.
 
-1. O navegador lê e descompacta o arquivo em memória.
-2. O XML é validado e interpretado sem sair do dispositivo.
-3. Cada registro é avaliado pelo alinhamento DKIM/SPF e pela política DMARC.
-4. O painel gera métricas, diagnóstico e orientações compatíveis com o resultado.
+## Privacidade
 
-ZIPs devem conter ao menos um `.xml`. A leitura usa o diretório central do pacote e aceita arquivos gerados por diferentes provedores, inclusive os que utilizam *data descriptor*.
+- a leitura e a descompactação acontecem na memória do navegador;
+- o conteúdo do XML não é transmitido;
+- não há cadastro, cookies de rastreamento ou banco de dados;
+- a preferência de tema é a única configuração salva localmente;
+- apenas os logos de provedores conhecidos podem ser solicitados ao CDN, sem envio do conteúdo do relatório.
 
-## Provedores
+## Tecnologias
 
-O formato de relatório agregado DMARC é padronizado. O painel não depende do nome do arquivo ou de um remetente específico e interpreta relatórios compatíveis enviados por Google, Zoho, Microsoft, Yahoo e outros provedores.
+- HTML5 semântico;
+- CSS3 responsivo com temas claro e escuro;
+- JavaScript moderno sem frameworks;
+- File API, `DOMParser`, `DecompressionStream` e `MutationObserver`.
 
-## Privacidade e compatibilidade
+## Aviso importante
 
-A aplicação usa `DOMParser`, File API e `DecompressionStream` e funciona melhor nas versões recentes de Chrome, Edge, Firefox e Safari. As orientações são educativas; valide alterações de DNS, SPF, DKIM ou DMARC com seu provedor de e-mail.
+O painel tem finalidade educativa e auxilia na interpretação do relatório. Antes de alterar registros DNS, SPF, DKIM ou políticas DMARC de um domínio em produção, valide a configuração com o responsável pela infraestrutura ou com o provedor de e-mail.
 
 ## Contribuindo
 
-Contribuições são bem-vindas por meio de *issues* e *pull requests*. Nunca publique relatórios reais com informações sensíveis sem anonimização.
+Sugestões, correções e melhorias são bem-vindas por meio de *issues* e *pull requests*. Nunca anexe relatórios reais sem antes remover domínios, endereços IP, contatos e outros dados que possam ser sensíveis.
 
-## Licença
+---
 
-Considere adicionar uma licença antes da publicação pública (por exemplo, MIT). Sem um arquivo `LICENSE`, todos os direitos permanecem reservados ao autor.
+<div align="center">
+
+**DMARC Simplificado**  
+Powered by [São Barreto Consultoria TI](https://saobarreto.com.br)
+
+</div>
