@@ -1,14 +1,310 @@
 "use strict";
-const $=s=>document.querySelector(s),all=(n,s)=>[...(n?.querySelectorAll(s)||[])],val=(n,d="—")=>n?.textContent?.trim()||d,esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])),sum=a=>a.reduce((x,y)=>x+y,0),policy={none:"monitoramento",quarantine:"quarentena",reject:"rejeição"};
-const drop=$("#dropZone"),input=$("#fileInput"),error=$("#errorMessage");
-const themeToggle=$("#themeToggle");
-function setTheme(theme){document.documentElement.dataset.theme=theme;localStorage.setItem("dmarc-theme",theme);themeToggle.setAttribute("aria-label",theme==="dark"?"Ativar tema claro":"Ativar tema escuro");themeToggle.title=themeToggle.getAttribute("aria-label")}
-setTheme(document.documentElement.dataset.theme||"light");themeToggle.addEventListener("click",()=>setTheme(document.documentElement.dataset.theme==="dark"?"light":"dark"));
-drop.addEventListener("dragover",e=>{e.preventDefault();drop.classList.add("drag")});drop.addEventListener("dragleave",()=>drop.classList.remove("drag"));drop.addEventListener("drop",e=>{e.preventDefault();drop.classList.remove("drag");if(e.dataTransfer.files[0])read(e.dataTransfer.files[0])});input.addEventListener("change",()=>input.files[0]&&read(input.files[0]));$("#newAnalysis").addEventListener("click",()=>{$("#results").hidden=true;input.value="";$("#inicio").scrollIntoView({behavior:"smooth"})});
-async function read(file){hideError();if(file.size>10485760)return showError("O arquivo ultrapassa o limite de 10 MB.");try{let source,n=file.name.toLowerCase();if(n.endsWith(".gz"))source=await unzipStream(file,"gzip");else if(n.endsWith(".zip"))source=await readZip(file);else if(n.endsWith(".xml"))source=await file.text();else throw Error("Formato não suportado. Use XML, XML.GZ ou ZIP.");let xml=new DOMParser().parseFromString(source,"application/xml");if(xml.querySelector("parsererror")||!xml.querySelector("feedback"))throw Error("Não encontramos um relatório DMARC válido.");render(parse(xml))}catch(e){showError(e.message||"Não foi possível ler esse arquivo.")}}
-async function unzipStream(blob,format){if(!window.DecompressionStream)throw Error("Atualize seu navegador para descompactar o arquivo localmente.");return new Response(blob.stream().pipeThrough(new DecompressionStream(format))).text()}
-async function readZip(file){let b=new Uint8Array(await file.arrayBuffer()),v=new DataView(b.buffer),e=-1;for(let i=b.length-22;i>=Math.max(0,b.length-65557);i--)if(v.getUint32(i,true)===0x06054b50){e=i;break}if(e<0)throw Error("O arquivo ZIP parece inválido ou incompleto.");let entries=v.getUint16(e+10,true),o=v.getUint32(e+16,true);for(let i=0;i<entries&&o+46<=b.length;i++){if(v.getUint32(o,true)!==0x02014b50)break;let method=v.getUint16(o+10,true),size=v.getUint32(o+20,true),nl=v.getUint16(o+28,true),el=v.getUint16(o+30,true),cl=v.getUint16(o+32,true),local=v.getUint32(o+42,true),name=new TextDecoder().decode(b.slice(o+46,o+46+nl));if(name.toLowerCase().endsWith(".xml")){if(v.getUint32(local,true)!==0x04034b50)throw Error("A estrutura interna do ZIP é inválida.");let lnl=v.getUint16(local+26,true),lel=v.getUint16(local+28,true),start=local+30+lnl+lel,data=b.slice(start,start+size);if(method===0)return new TextDecoder().decode(data);if(method===8)return unzipStream(new Blob([data]),"deflate-raw");throw Error("Método de compactação do ZIP não suportado.")}o+=46+nl+el+cl}throw Error("Nenhum XML foi encontrado dentro do ZIP.")}
-function parse(xml){let q=(n,s)=>n?.querySelector(s),meta=q(xml,"report_metadata"),pol=q(xml,"policy_published"),records=all(xml,"feedback > record").map(r=>{let pe=q(r,"policy_evaluated");return{ip:val(q(r,"source_ip")),count:+val(q(r,"row > count"),"0"),dkim:val(q(pe,"dkim"),"fail").toLowerCase(),spf:val(q(pe,"spf"),"fail").toLowerCase(),disposition:val(q(pe,"disposition"),"none").toLowerCase()}});return{domain:val(q(pol,"domain")),org:val(q(meta,"org_name")),email:val(q(meta,"email")),id:val(q(meta,"report_id")),begin:+val(q(meta,"date_range > begin"),"0"),end:+val(q(meta,"date_range > end"),"0"),policy:val(q(pol,"p"),"none").toLowerCase(),pct:+val(q(pol,"pct"),"100"),adkim:val(q(pol,"adkim"),"r"),aspf:val(q(pol,"aspf"),"r"),records}}
-function render(r){let total=sum(r.records.map(x=>x.count)),passed=sum(r.records.filter(x=>x.dkim==="pass"||x.spf==="pass").map(x=>x.count)),attention=r.records.filter(x=>x.dkim!=="pass"&&x.spf!=="pass"),rate=total?Math.round(passed/total*100):0,strength=r.policy==="reject"?100:r.policy==="quarantine"?85:65,score=Math.round(rate*.75+strength*.25),status=rate===100?"good":rate>=80?"warn":"bad",period=`${date(r.begin)} a ${date(r.end)}`;$("#scoreValue").textContent=score;$("#scoreRing").style.setProperty("--score",score);$("#statusBadge").className=`badge ${status}`;$("#statusBadge").textContent=status==="good"?"TUDO EM ORDEM":status==="warn"?"REQUER ATENÇÃO":"AÇÃO RECOMENDADA";$("#summaryTitle").textContent=status==="good"?"As mensagens estão autenticadas":status==="warn"?"A maioria das mensagens está autenticada":"Há envios que precisam ser verificados";$("#summaryText").textContent=status==="good"?`Todas as ${total} mensagens observadas passaram por ao menos um mecanismo alinhado. Não há indício de problema neste relatório.`:`${total-passed} de ${total} mensagens não passaram por DKIM nem SPF alinhados. Confirme se os IPs pertencem a serviços autorizados.`;$("#domainValue").textContent=r.domain;$("#periodValue").textContent=period;$("#totalMessages").textContent=total.toLocaleString("pt-BR");$("#passRate").textContent=rate+"%";$("#attentionSources").textContent=attention.length;$("#policyValue").textContent=policy[r.policy]||r.policy;$("#policyPercent").textContent=`aplicada a ${r.pct}% das mensagens`;actions(r,attention,rate);$("#reportMeta").innerHTML=[["Organização",r.org],["Período",period],["Contato",r.email],["ID do relatório",r.id]].map(x=>`<dt>${esc(x[0])}</dt><dd>${esc(x[1])}</dd>`).join("");$("#sourceCount").textContent=`${r.records.length} ${r.records.length===1?"fonte":"fontes"}`;$("#sourceRows").innerHTML=r.records.map(x=>`<tr><td><b>${esc(x.ip)}</b></td><td>${x.count.toLocaleString("pt-BR")}</td><td><span class="tag ${x.dkim==="pass"?"pass":"fail"}">${x.dkim==="pass"?"Aprovado":"Falhou"}</span></td><td><span class="tag ${x.spf==="pass"?"pass":"fail"}">${x.spf==="pass"?"Aprovado":"Falhou"}</span></td><td><span class="tag neutral">${esc(policy[x.disposition]||x.disposition)}</span></td><td>${x.dkim==="pass"||x.spf==="pass"?"Autenticado":"Verificar origem"}</td></tr>`).join("");$("#results").hidden=false;$("#results").scrollIntoView({behavior:"smooth"})}
-function actions(r,attention,rate){let a=[];a.push(rate===100?["Nenhuma ação urgente","As mensagens do período passaram por autenticação alinhada.",0]:["Confirme as fontes com falha",`Verifique se ${attention.map(x=>x.ip).join(", ")} pertence a um serviço utilizado.`,1]);a.push(r.policy==="none"?["Política em monitoramento","Analise mais relatórios antes de avançar para quarentena ou rejeição.",1]:[`Política de ${policy[r.policy]} ativa`,`Ela protege ${r.pct}% do tráfego declarado. Continue monitorando.`,0]);a.push(["Entenda o alinhamento",r.aspf==="s"||r.adkim==="s"?"O modo estrito exige correspondência exata entre o domínio autenticado e o remetente.":"O modo relaxado aceita subdomínios relacionados ao remetente.",0]);$("#actionTitle").textContent=attention.length?"Há pontos para conferir":"Apenas continue monitorando";$("#actionsList").innerHTML=a.map(x=>`<div class="action ${x[2]?"warn":""}"><i>${x[2]?"!":"✓"}</i><div><b>${esc(x[0])}</b><p>${esc(x[1])}</p></div></div>`).join("")}
-function date(t){return t?new Intl.DateTimeFormat("pt-BR",{day:"2-digit",month:"short",year:"numeric",timeZone:"UTC"}).format(new Date(t*1000)):"data não informada"}function showError(s){error.textContent=s;error.classList.add("show")}function hideError(){error.textContent="";error.classList.remove("show")}
+
+const $ = (selector) => document.querySelector(selector);
+const all = (node, selector) => [...(node?.querySelectorAll(selector) || [])];
+const value = (node, fallback = "—") => node?.textContent?.trim() || fallback;
+const sum = (items) => items.reduce((total, item) => total + item, 0);
+const escapeHtml = (text) => String(text).replace(/[&<>"]/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[char]));
+const policyName = { none: "monitoramento", quarantine: "quarentena", reject: "rejeição" };
+const MAX_FILES = 100;
+const MAX_BATCH_SIZE = 50 * 1024 * 1024;
+let reports = [];
+let duplicateTotal = 0;
+let rejectedTotal = 0;
+let overlapTotal = 0;
+
+const dropZone = $("#dropZone");
+const fileInput = $("#fileInput");
+const errorMessage = $("#errorMessage");
+const themeToggle = $("#themeToggle");
+
+function setTheme(theme) {
+  document.documentElement.dataset.theme = theme;
+  localStorage.setItem("dmarc-theme", theme);
+  themeToggle.setAttribute("aria-label", theme === "dark" ? "Ativar tema claro" : "Ativar tema escuro");
+  themeToggle.title = themeToggle.getAttribute("aria-label");
+}
+setTheme(document.documentElement.dataset.theme || "light");
+themeToggle.addEventListener("click", () => setTheme(document.documentElement.dataset.theme === "dark" ? "light" : "dark"));
+
+dropZone.addEventListener("dragover", (event) => { event.preventDefault(); dropZone.classList.add("drag"); });
+dropZone.addEventListener("dragleave", () => dropZone.classList.remove("drag"));
+dropZone.addEventListener("drop", (event) => {
+  event.preventDefault();
+  dropZone.classList.remove("drag");
+  processFiles([...event.dataTransfer.files]);
+});
+fileInput.addEventListener("change", () => processFiles([...fileInput.files]));
+$("#newAnalysis").addEventListener("click", resetAnalysis);
+$("#clearFilters").addEventListener("click", () => {
+  $("#domainFilter").value = "";
+  $("#providerFilter").value = "";
+  $("#statusFilter").value = "";
+  applyFilters();
+});
+["#domainFilter", "#providerFilter", "#statusFilter"].forEach((selector) => $(selector).addEventListener("change", applyFilters));
+
+async function processFiles(files) {
+  hideError();
+  if (!files.length) return;
+  if (files.length > MAX_FILES) return showError(`Selecione no máximo ${MAX_FILES} arquivos por lote.`);
+  const batchSize = sum(files.map((file) => file.size));
+  if (batchSize > MAX_BATCH_SIZE) return showError("O lote ultrapassa o limite total de 50 MB.");
+
+  const uploadTitle = dropZone.querySelector("h2");
+  const originalTitle = uploadTitle.textContent;
+  uploadTitle.textContent = `Processando ${files.length} ${files.length === 1 ? "arquivo" : "arquivos"}…`;
+  const results = await Promise.allSettled(files.map(readReportFile));
+  uploadTitle.textContent = originalTitle;
+
+  const valid = results.filter((result) => result.status === "fulfilled").map((result) => result.value);
+  rejectedTotal = results.length - valid.length;
+  const unique = new Map();
+  duplicateTotal = 0;
+  valid.forEach((report) => {
+    const key = [report.domain, report.org, report.id, report.begin, report.end].join("|");
+    if (unique.has(key)) duplicateTotal++;
+    else unique.set(key, report);
+  });
+  reports = [...unique.values()].sort((a, b) => a.begin - b.begin);
+  overlapTotal = countOverlaps(reports);
+  if (!reports.length) {
+    const firstError = results.find((result) => result.status === "rejected")?.reason?.message;
+    return showError(firstError || "Nenhum relatório DMARC válido foi encontrado.");
+  }
+  renderDashboard();
+  if (rejectedTotal) showError(`${rejectedTotal} ${rejectedTotal === 1 ? "arquivo não pôde" : "arquivos não puderam"} ser processado. Os demais foram analisados.`);
+}
+
+async function readReportFile(file) {
+  const name = file.name.toLowerCase();
+  let source;
+  if (name.endsWith(".gz")) source = await decompress(file, "gzip");
+  else if (name.endsWith(".zip")) source = await readZip(file);
+  else if (name.endsWith(".xml")) source = await file.text();
+  else throw new Error(`${file.name}: formato não suportado.`);
+  const xml = new DOMParser().parseFromString(source, "application/xml");
+  if (xml.querySelector("parsererror") || !xml.querySelector("feedback")) throw new Error(`${file.name}: relatório DMARC inválido.`);
+  return parseReport(xml, file);
+}
+
+async function decompress(blob, format) {
+  if (!window.DecompressionStream) throw new Error("Atualize o navegador para descompactar os arquivos localmente.");
+  return new Response(blob.stream().pipeThrough(new DecompressionStream(format))).text();
+}
+
+async function readZip(file) {
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  const view = new DataView(bytes.buffer);
+  let eocd = -1;
+  for (let index = bytes.length - 22; index >= Math.max(0, bytes.length - 65557); index--) {
+    if (view.getUint32(index, true) === 0x06054b50) { eocd = index; break; }
+  }
+  if (eocd < 0) throw new Error(`${file.name}: ZIP inválido ou incompleto.`);
+  const entries = view.getUint16(eocd + 10, true);
+  let offset = view.getUint32(eocd + 16, true);
+  for (let index = 0; index < entries && offset + 46 <= bytes.length; index++) {
+    if (view.getUint32(offset, true) !== 0x02014b50) break;
+    const method = view.getUint16(offset + 10, true);
+    const compressedSize = view.getUint32(offset + 20, true);
+    const nameLength = view.getUint16(offset + 28, true);
+    const extraLength = view.getUint16(offset + 30, true);
+    const commentLength = view.getUint16(offset + 32, true);
+    const localOffset = view.getUint32(offset + 42, true);
+    const name = new TextDecoder().decode(bytes.slice(offset + 46, offset + 46 + nameLength));
+    if (name.toLowerCase().endsWith(".xml")) {
+      if (view.getUint32(localOffset, true) !== 0x04034b50) throw new Error(`${file.name}: estrutura ZIP inválida.`);
+      const localNameLength = view.getUint16(localOffset + 26, true);
+      const localExtraLength = view.getUint16(localOffset + 28, true);
+      const start = localOffset + 30 + localNameLength + localExtraLength;
+      const data = bytes.slice(start, start + compressedSize);
+      if (method === 0) return new TextDecoder().decode(data);
+      if (method === 8) return decompress(new Blob([data]), "deflate-raw");
+      throw new Error(`${file.name}: método de compactação não suportado.`);
+    }
+    offset += 46 + nameLength + extraLength + commentLength;
+  }
+  throw new Error(`${file.name}: nenhum XML foi encontrado no ZIP.`);
+}
+
+function parseReport(xml, file) {
+  const query = (node, selector) => node?.querySelector(selector);
+  const metadata = query(xml, "report_metadata");
+  const published = query(xml, "policy_published");
+  const records = all(xml, "feedback > record").map((record) => {
+    const evaluated = query(record, "policy_evaluated");
+    return {
+      ip: value(query(record, "source_ip")),
+      count: Number(value(query(record, "row > count"), "0")),
+      dkim: value(query(evaluated, "dkim"), "fail").toLowerCase(),
+      spf: value(query(evaluated, "spf"), "fail").toLowerCase(),
+      disposition: value(query(evaluated, "disposition"), "none").toLowerCase()
+    };
+  });
+  return {
+    filename: file.name, size: file.size,
+    domain: value(query(published, "domain")), org: value(query(metadata, "org_name")),
+    email: value(query(metadata, "email")), id: value(query(metadata, "report_id")),
+    begin: Number(value(query(metadata, "date_range > begin"), "0")),
+    end: Number(value(query(metadata, "date_range > end"), "0")),
+    policy: value(query(published, "p"), "none").toLowerCase(),
+    percentage: Number(value(query(published, "pct"), "100")),
+    adkim: value(query(published, "adkim"), "r"), aspf: value(query(published, "aspf"), "r"),
+    records
+  };
+}
+
+function renderDashboard() {
+  const domains = [...new Set(reports.map((report) => report.domain))];
+  const providers = [...new Set(reports.map((report) => report.org))];
+  const begin = Math.min(...reports.map((report) => report.begin).filter(Boolean));
+  const end = Math.max(...reports.map((report) => report.end).filter(Boolean));
+  const records = reports.flatMap((report) => report.records.map((record) => ({ ...record, report })));
+  const total = sum(records.map((record) => record.count));
+  const passed = sum(records.filter(isPassed).map((record) => record.count));
+  const attention = records.filter((record) => !isPassed(record));
+  const passRate = total ? Math.round((passed / total) * 1000) / 10 : 0;
+  const policyScore = total ? sum(records.map((record) => record.count * policyStrength(record.report.policy))) / total : 0;
+  const status = passRate === 100 ? "good" : passRate >= 80 ? "warn" : "bad";
+  const policies = [...new Set(reports.map((report) => policyName[report.policy] || report.policy))];
+
+  $("#reportCount").textContent = reports.length;
+  const batchNotes = [];
+  batchNotes.push(duplicateTotal ? `${duplicateTotal} duplicado${duplicateTotal > 1 ? "s" : ""} ignorado${duplicateTotal > 1 ? "s" : ""}` : "nenhum duplicado");
+  if (overlapTotal) batchNotes.push(`${overlapTotal} período${overlapTotal > 1 ? "s" : ""} sobreposto${overlapTotal > 1 ? "s" : ""}`);
+  $("#duplicateCount").textContent = batchNotes.join(" · ");
+  $("#batchPeriod").textContent = `${formatDate(begin)} — ${formatDate(end)}`;
+  $("#domainCount").textContent = domains.length;
+  $("#domainNames").textContent = shortList(domains);
+  $("#providerCount").textContent = providers.length;
+  $("#providerNames").textContent = shortList(providers.map((org) => getProviderInfo(org).name));
+  $("#authValue").textContent = passRate.toLocaleString("pt-BR");
+  $("#authRing").style.setProperty("--score", passRate);
+  $("#policyLevel").textContent = policyLabel(reports);
+  $("#policyBar").style.width = `${policyScore}%`;
+  $("#policyHint").textContent = policyExplanation(reports);
+  $("#statusBadge").className = `badge ${status}`;
+  $("#statusBadge").textContent = status === "good" ? "TUDO EM ORDEM" : status === "warn" ? "REQUER ATENÇÃO" : "AÇÃO RECOMENDADA";
+  $("#summaryTitle").textContent = status === "good" ? "O lote está totalmente autenticado" : status === "warn" ? "A maioria das mensagens está autenticada" : "Há envios que precisam ser verificados";
+  $("#summaryText").textContent = status === "good" ? `Todas as ${total.toLocaleString("pt-BR")} mensagens passaram por ao menos um mecanismo alinhado.` : `${(total - passed).toLocaleString("pt-BR")} de ${total.toLocaleString("pt-BR")} mensagens não passaram por DKIM nem SPF alinhados.`;
+  $("#domainValue").textContent = domains.length === 1 ? domains[0] : `${domains.length} domínios`;
+  $("#periodValue").textContent = `${reports.length} relatórios · ${formatDate(begin)} a ${formatDate(end)}`;
+  $("#totalMessages").textContent = total.toLocaleString("pt-BR");
+  $("#passRate").textContent = `${passRate.toLocaleString("pt-BR")}%`;
+  $("#attentionSources").textContent = attention.length;
+  $("#policyValue").textContent = policies.join(", ");
+  $("#policyPercent").textContent = policies.length === 1 ? "política consistente no lote" : "houve mudança de política";
+  renderActions(attention, passRate, domains, providers);
+  renderProviderSummary(providers);
+  $("#reportMeta").innerHTML = [["Arquivos válidos", reports.length], ["Duplicados ignorados", duplicateTotal], ["Arquivos com erro", rejectedTotal], ["Volume selecionado", formatBytes(sum(reports.map((report) => report.size)))]].map(([label, item]) => `<dt>${escapeHtml(label)}</dt><dd>${escapeHtml(item)}</dd>`).join("");
+  fillFilters(domains, providers);
+  renderSourceRows(records);
+  renderReportList(reports);
+  $("#results").hidden = false;
+  $("#results").scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function renderActions(attention, passRate, domains, providers) {
+  const items = [];
+  items.push(passRate === 100 ? ["Nenhuma ação urgente", "Todos os envios do lote passaram por autenticação alinhada.", false] : ["Investigue falhas recorrentes", `${attention.length} combinações de origem apresentaram falha de alinhamento. Use os filtros para localizá-las.`, true]);
+  if (domains.length > 1) items.push(["Analise cada domínio separadamente", `O lote contém ${domains.length} domínios. Compare os resultados sem misturar suas configurações.`, true]);
+  if (providers.length > 1) items.push(["Compare a visão dos destinatários", `${providers.length} provedores reportaram tráfego. Diferenças entre eles podem revelar problemas específicos de entrega.`, false]);
+  if (duplicateTotal) items.push(["Duplicados removidos", `${duplicateTotal} arquivo(s) repetido(s) não entrou(aram) nas métricas.`, false]);
+  if (overlapTotal) items.push(["Revise períodos sobrepostos", `${overlapTotal} combinação(ões) de relatórios do mesmo domínio e provedor cobrem datas coincidentes e podem contar mensagens repetidas.`, true]);
+  $("#actionTitle").textContent = attention.length ? "Há pontos para conferir" : "Apenas continue monitorando";
+  $("#actionsList").innerHTML = items.map(([title, description, warning]) => `<div class="action ${warning ? "warn" : ""}"><i>${warning ? "!" : "✓"}</i><div><b>${escapeHtml(title)}</b><p>${escapeHtml(description)}</p></div></div>`).join("");
+}
+
+function renderProviderSummary(providers) {
+  const container = $("#providerSummary");
+  container.replaceChildren();
+  providers.forEach((org) => {
+    const item = document.createElement("span");
+    item.className = "provider-chip";
+    item.append(createProviderLogo(org, true));
+    const name = document.createElement("b");
+    name.textContent = getProviderInfo(org).name;
+    item.append(name);
+    container.append(item);
+  });
+}
+
+function fillFilters(domains, providers) {
+  setOptions($("#domainFilter"), domains.map((domain) => [domain, domain]));
+  setOptions($("#providerFilter"), providers.map((org) => [org, getProviderInfo(org).name]));
+  $("#statusFilter").value = "";
+}
+
+function setOptions(select, options) {
+  select.innerHTML = '<option value="">Todos</option>' + options.map(([itemValue, label]) => `<option value="${escapeHtml(itemValue)}">${escapeHtml(label)}</option>`).join("");
+}
+
+function applyFilters() {
+  const domain = $("#domainFilter").value;
+  const provider = $("#providerFilter").value;
+  const status = $("#statusFilter").value;
+  const filteredReports = reports.filter((report) => (!domain || report.domain === domain) && (!provider || report.org === provider));
+  const filteredRecords = filteredReports.flatMap((report) => report.records.map((record) => ({ ...record, report }))).filter((record) => !status || (status === "pass" ? isPassed(record) : !isPassed(record)));
+  renderSourceRows(filteredRecords);
+  renderReportList(filteredReports.filter((report) => !status || report.records.some((record) => status === "pass" ? isPassed(record) : !isPassed(record))));
+}
+
+function renderSourceRows(records) {
+  $("#sourceCount").textContent = `${records.length} ${records.length === 1 ? "fonte" : "fontes"}`;
+  $("#emptyFilter").hidden = records.length > 0;
+  $("#sourceRows").innerHTML = records.map((record) => {
+    const provider = getProviderInfo(record.report.org);
+    return `<tr><td><span class="provider-cell" data-provider="${escapeHtml(record.report.org)}"><b>${escapeHtml(provider.name)}</b></span></td><td>${escapeHtml(record.report.domain)}</td><td><b>${escapeHtml(record.ip)}</b></td><td>${record.count.toLocaleString("pt-BR")}</td><td><span class="tag ${record.dkim === "pass" ? "pass" : "fail"}">${record.dkim === "pass" ? "Aprovado" : "Falhou"}</span></td><td><span class="tag ${record.spf === "pass" ? "pass" : "fail"}">${record.spf === "pass" ? "Aprovado" : "Falhou"}</span></td><td><span class="tag neutral">${escapeHtml(policyName[record.disposition] || record.disposition)}</span></td><td>${isPassed(record) ? "Autenticado" : "Verificar origem"}</td></tr>`;
+  }).join("");
+  all(document, ".provider-cell").forEach((cell) => {
+    if (!cell.querySelector(".provider-logo")) cell.prepend(createProviderLogo(cell.dataset.provider, true));
+  });
+}
+
+function renderReportList(items) {
+  $("#visibleReportCount").textContent = `${items.length} ${items.length === 1 ? "relatório" : "relatórios"}`;
+  const container = $("#reportList");
+  container.replaceChildren();
+  items.forEach((report) => {
+    const total = sum(report.records.map((record) => record.count));
+    const passed = sum(report.records.filter(isPassed).map((record) => record.count));
+    const rate = total ? Math.round((passed / total) * 1000) / 10 : 0;
+    const provider = getProviderInfo(report.org);
+    const details = document.createElement("details");
+    details.className = "report-item";
+    details.innerHTML = `<summary><span class="report-provider"></span><span class="report-main"><b>${escapeHtml(provider.name)}</b><small>${escapeHtml(report.domain)} · ${formatDate(report.begin)} a ${formatDate(report.end)}</small></span><span class="report-rate ${rate === 100 ? "good" : rate >= 80 ? "warn" : "bad"}">${rate.toLocaleString("pt-BR")}%</span><span class="report-volume">${total.toLocaleString("pt-BR")} msg.</span><span class="report-arrow">⌄</span></summary><div class="report-detail"><span><small>Arquivo</small><b>${escapeHtml(report.filename)}</b></span><span><small>Política</small><b>${escapeHtml(policyName[report.policy] || report.policy)} (${report.percentage}%)</b></span><span><small>Registros</small><b>${report.records.length}</b></span><span><small>ID</small><b>${escapeHtml(report.id)}</b></span></div>`;
+    details.querySelector(".report-provider").append(createProviderLogo(report.org, true));
+    container.append(details);
+  });
+}
+
+function isPassed(record) { return record.dkim === "pass" || record.spf === "pass"; }
+function policyStrength(policy) { return policy === "reject" ? 100 : policy === "quarantine" ? 85 : 65; }
+function policyLabel(items) {
+  const found = [...new Set(items.map((report) => report.policy))];
+  if (found.length > 1) return "Políticas diferentes";
+  return found[0] === "reject" ? "Rejeição — proteção máxima" : found[0] === "quarantine" ? "Quarentena — proteção alta" : "Monitoramento — sem bloqueio";
+}
+function policyExplanation(items) {
+  const found = [...new Set(items.map((report) => report.policy))];
+  if (found.length > 1) return "O lote registra mudanças ou diferenças de política; examine cada relatório.";
+  if (found[0] === "reject") return "Mensagens sem alinhamento devem ser rejeitadas pelo destinatário.";
+  if (found[0] === "quarantine") return "Falhas devem ir para spam ou quarentena. Avance com cautela após validar todos os remetentes.";
+  return "As falhas são apenas observadas. Use os relatórios para validar as fontes antes de proteger o domínio.";
+}
+function countOverlaps(items) {
+  let overlaps = 0;
+  for (let left = 0; left < items.length; left++) {
+    for (let right = left + 1; right < items.length; right++) {
+      const a = items[left], b = items[right];
+      if (a.domain === b.domain && a.org === b.org && a.begin < b.end && b.begin < a.end) overlaps++;
+    }
+  }
+  return overlaps;
+}
+function shortList(items) { return items.length > 3 ? `${items.slice(0, 3).join(", ")} +${items.length - 3}` : items.join(", "); }
+function formatDate(timestamp) { return timestamp ? new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "short", year: "numeric", timeZone: "UTC" }).format(new Date(timestamp * 1000)) : "não informado"; }
+function formatBytes(bytes) { return bytes < 1024 * 1024 ? `${Math.ceil(bytes / 1024)} KB` : `${(bytes / 1024 / 1024).toFixed(1).replace(".", ",")} MB`; }
+function showError(message) { errorMessage.textContent = message; errorMessage.classList.add("show"); }
+function hideError() { errorMessage.textContent = ""; errorMessage.classList.remove("show"); }
+function resetAnalysis() { reports = []; duplicateTotal = 0; rejectedTotal = 0; overlapTotal = 0; fileInput.value = ""; $("#results").hidden = true; hideError(); $("#inicio").scrollIntoView({ behavior: "smooth" }); }

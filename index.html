@@ -1,13 +1,60 @@
-<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="description" content="Leitor privado e simplificado de relatórios DMARC"><title>DMARC Simplificado</title><script>document.documentElement.dataset.theme=localStorage.getItem("dmarc-theme")||((matchMedia("(prefers-color-scheme: dark)").matches)?"dark":"light")</script><link rel="stylesheet" href="assets/css/style.css"><link rel="stylesheet" href="assets/css/theme.css"></head><body>
-<div class="glow g1"></div><div class="glow g2"></div>
-<header><a class="brand" href="#"><i>◈</i> DMARC <b>Simplificado</b></a><div class="header-actions"><span class="privacy"><i></i> Processamento 100% local</span><button class="theme-toggle" id="themeToggle" type="button" aria-label="Alternar tema" title="Alternar tema"><span class="sun">☀</span><span class="moon">☾</span></button></div></header>
-<main><section class="hero" id="inicio"><span class="kicker">RELATÓRIOS DE E-MAIL, SEM COMPLICAÇÃO</span><h1>Seu domínio está<br><em>bem protegido?</em></h1><p>Envie o relatório DMARC que chegou por e-mail. Nós traduzimos o XML técnico em um diagnóstico direto, visual e fácil de agir.</p>
-<div class="upload" id="dropZone"><span class="upload-icon">↥</span><div><h2>Arraste seu relatório aqui</h2><p>ou selecione um arquivo do seu computador</p></div><label for="fileInput">Escolher arquivo</label><input id="fileInput" type="file" accept=".xml,.gz,.zip" hidden><div class="types"><b>XML</b><b>XML.GZ</b><b>ZIP</b><small>até 10 MB</small></div></div><div class="error" id="errorMessage" role="alert"></div>
-<div class="trust"><div><i>♢</i><span><b>Privado</b>Seu arquivo não sai do navegador</span></div><div><i>⌁</i><span><b>Didático</b>Do dado técnico à ação recomendada</span></div><div><i>◷</i><span><b>Imediato</b>Análise em poucos segundos</span></div></div></section>
-<section class="results" id="results" hidden><div class="result-head"><div><span class="kicker">ANÁLISE CONCLUÍDA</span><h2>Visão geral do relatório</h2></div><button id="newAnalysis">＋ Analisar outro arquivo</button></div>
-<article class="summary"><div class="score" id="scoreRing"><span><strong id="scoreValue">0</strong><small>/100</small></span></div><div><span class="badge" id="statusBadge"></span><h3 id="summaryTitle"></h3><p id="summaryText"></p></div><div class="domain"><small>Domínio analisado</small><b id="domainValue"></b><span id="periodValue"></span></div></article>
-<div class="metrics"><article><i>✉</i><small>Mensagens avaliadas</small><strong id="totalMessages"></strong><p>no período do relatório</p></article><article><i>✓</i><small>Autenticação aprovada</small><strong id="passRate"></strong><p>alinhadas por DKIM ou SPF</p></article><article><i>!</i><small>Fontes com atenção</small><strong id="attentionSources"></strong><p>IPs com falha de alinhamento</p></article><article><i>◈</i><small>Política publicada</small><strong id="policyValue"></strong><p id="policyPercent"></p></article></div>
-<div class="columns"><article class="panel"><div class="panel-title"><i>◎</i><div><small>O QUE FAZER AGORA?</small><h3 id="actionTitle"></h3></div></div><div id="actionsList"></div></article><article class="panel"><div class="panel-title"><i>⌁</i><div><small>SOBRE O RELATÓRIO</small><h3>Quem enviou e quando</h3></div></div><dl id="reportMeta"></dl></article></div>
-<article class="panel sources"><div class="source-head"><div><span class="kicker">DETALHAMENTO TÉCNICO</span><h3>Fontes que enviaram mensagens</h3></div><span id="sourceCount"></span></div><div class="table"><table><thead><tr><th>IP de origem</th><th>Volume</th><th>DKIM</th><th>SPF</th><th>Disposição</th><th>Diagnóstico</th></tr></thead><tbody id="sourceRows"></tbody></table></div></article>
-<details class="panel glossary"><summary><span><b>?</b> O que significam DKIM, SPF e DMARC?</span><span>⌄</span></summary><div><p><b>SPF</b> lista quais servidores podem enviar e-mails pelo domínio.</p><p><b>DKIM</b> usa uma assinatura digital para comprovar origem e integridade.</p><p><b>DMARC</b> verifica o alinhamento e define o tratamento de falhas.</p></div></details></section></main>
-<footer><span>©2026 DMARC SIMPLIFICADO. Todos os direitos reservados.</span><span>Powered by <a href="https://saobarreto.com.br" target="_blank" rel="noopener noreferrer">São Barreto Consultoria TI</a></span></footer><script src="assets/js/app.js"></script><script src="assets/js/provider.js"></script></body></html>
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="Leitor privado e simplificado de relatórios DMARC">
+  <title>DMARC Simplificado</title>
+  <script>document.documentElement.dataset.theme=localStorage.getItem("dmarc-theme")||(matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light")</script>
+  <link rel="stylesheet" href="assets/css/style.css">
+  <link rel="stylesheet" href="assets/css/theme.css">
+  <link rel="stylesheet" href="assets/css/batch.css">
+</head>
+<body>
+  <div class="glow g1"></div><div class="glow g2"></div>
+  <header>
+    <a class="brand" href="#"><i>◈</i> DMARC <b>Simplificado</b></a>
+    <div class="header-actions"><span class="privacy"><i></i> Processamento 100% local</span><button class="theme-toggle" id="themeToggle" type="button" aria-label="Alternar tema"><span class="sun">☀</span><span class="moon">☾</span></button></div>
+  </header>
+  <main>
+    <section class="hero" id="inicio">
+      <span class="kicker">RELATÓRIOS DE E-MAIL, SEM COMPLICAÇÃO</span>
+      <h1>Seu domínio está<br><em>bem protegido?</em></h1>
+      <p>Envie um ou vários relatórios DMARC. Consolidamos períodos e provedores em um diagnóstico direto, visual e fácil de agir.</p>
+      <div class="upload" id="dropZone">
+        <span class="upload-icon">↥</span>
+        <div><h2>Arraste seus relatórios aqui</h2><p>selecione um arquivo ou analise vários períodos de uma só vez</p></div>
+        <label for="fileInput">Escolher arquivos</label>
+        <input id="fileInput" type="file" accept=".xml,.gz,.zip" multiple hidden>
+        <div class="types"><b>XML</b><b>XML.GZ</b><b>ZIP</b><small>até 100 arquivos e 50 MB por lote</small></div>
+      </div>
+      <div class="error" id="errorMessage" role="alert" aria-live="polite"></div>
+      <div class="trust"><div><i>♢</i><span><b>Privado</b>Seus arquivos não saem do navegador</span></div><div><i>⌁</i><span><b>Consolidado</b>Períodos e provedores em uma visão</span></div><div><i>◷</i><span><b>Imediato</b>Análise em poucos segundos</span></div></div>
+    </section>
+
+    <section class="results" id="results" hidden>
+      <div class="result-head"><div><span class="kicker">ANÁLISE CONCLUÍDA</span><h2>Visão consolidada</h2></div><button id="newAnalysis">＋ Nova análise</button></div>
+      <div class="batch-overview">
+        <div><small>Relatórios válidos</small><strong id="reportCount">0</strong><span id="duplicateCount"></span></div>
+        <div><small>Período consolidado</small><strong id="batchPeriod">—</strong><span>sem somar arquivos duplicados</span></div>
+        <div><small>Domínios</small><strong id="domainCount">0</strong><span id="domainNames"></span></div>
+        <div><small>Provedores</small><strong id="providerCount">0</strong><span id="providerNames"></span></div>
+      </div>
+      <article class="summary health-summary"><div class="health-indicators"><div><div class="score" id="authRing"><span><strong id="authValue">0</strong><small>%</small></span></div><small>Saúde da autenticação</small></div><div class="policy-indicator"><small>Nível da política DMARC</small><strong id="policyLevel">—</strong><div class="policy-track"><i id="policyBar"></i></div><span id="policyHint"></span></div></div><div><span class="badge" id="statusBadge"></span><h3 id="summaryTitle"></h3><p id="summaryText"></p></div><div class="domain"><small>Escopo analisado</small><b id="domainValue"></b><span id="periodValue"></span></div></article>
+      <div class="metrics"><article><i>✉</i><small>Mensagens avaliadas</small><strong id="totalMessages"></strong><p>em todos os relatórios</p></article><article><i>✓</i><small>Autenticação aprovada</small><strong id="passRate"></strong><p>ponderada pelo volume</p></article><article><i>!</i><small>Fontes com atenção</small><strong id="attentionSources"></strong><p>combinações de IP e domínio</p></article><article><i>◈</i><small>Políticas encontradas</small><strong id="policyValue"></strong><p id="policyPercent"></p></article></div>
+      <div class="columns"><article class="panel"><div class="panel-title"><i>◎</i><div><small>O QUE FAZER AGORA?</small><h3 id="actionTitle"></h3></div></div><div id="actionsList"></div></article><article class="panel"><div class="panel-title"><i>⌁</i><div><small>SOBRE OS RELATÓRIOS</small><h3>Quem enviou e quando</h3></div></div><div class="provider-summary" id="providerSummary"></div><dl id="reportMeta"></dl></article></div>
+      <article class="panel sources">
+        <div class="source-head"><div><span class="kicker">DETALHAMENTO TÉCNICO</span><h3>Fontes que enviaram mensagens</h3></div><span id="sourceCount"></span></div>
+        <div class="filters"><label>Domínio<select id="domainFilter"><option value="">Todos</option></select></label><label>Provedor<select id="providerFilter"><option value="">Todos</option></select></label><label>Resultado<select id="statusFilter"><option value="">Todos</option><option value="pass">Aprovados</option><option value="fail">Com atenção</option></select></label><button id="clearFilters">Limpar filtros</button></div>
+        <div class="table"><table><thead><tr><th>Provedor</th><th>Domínio</th><th>IP de origem</th><th>Volume</th><th>DKIM</th><th>SPF</th><th>Disposição</th><th>Diagnóstico</th></tr></thead><tbody id="sourceRows"></tbody></table></div>
+        <p class="empty-filter" id="emptyFilter" hidden>Nenhuma fonte corresponde aos filtros selecionados.</p>
+      </article>
+      <article class="panel reports-panel"><div class="source-head"><div><span class="kicker">ARQUIVOS DO LOTE</span><h3>Detalhes por relatório</h3></div><span id="visibleReportCount"></span></div><div id="reportList" class="report-list"></div></article>
+      <details class="panel glossary"><summary><span><b>?</b> O que significam DKIM, SPF e DMARC?</span><span>⌄</span></summary><div><p><b>SPF</b> lista quais servidores podem enviar e-mails pelo domínio.</p><p><b>DKIM</b> usa uma assinatura digital para comprovar origem e integridade.</p><p><b>DMARC</b> verifica o alinhamento e define o tratamento de falhas.</p></div></details>
+    </section>
+  </main>
+  <footer><span>©2026 DMARC SIMPLIFICADO. Todos os direitos reservados.</span><span>Powered by <a href="https://saobarreto.com.br" target="_blank" rel="noopener noreferrer">São Barreto Consultoria TI</a></span></footer>
+  <script src="assets/js/provider.js"></script>
+  <script src="assets/js/app.js"></script>
+</body>
+</html>
