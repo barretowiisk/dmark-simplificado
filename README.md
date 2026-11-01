@@ -10,6 +10,7 @@ Um painel moderno, privado e fácil de usar para interpretar relatórios agregad
 ![CSS](https://img.shields.io/badge/CSS3-responsivo-1572B6?logo=css3&logoColor=white)
 ![JavaScript](https://img.shields.io/badge/JavaScript-sem_dependências-F7DF1E?logo=javascript&logoColor=111)
 ![Privacidade](https://img.shields.io/badge/privacidade-processamento_local-17A873)
+![Versão](https://img.shields.io/badge/versão-1.0.0-7455E8)
 
 </div>
 
@@ -34,6 +35,7 @@ O arquivo é processado localmente. Seu conteúdo não é enviado, armazenado ou
 - interpretação das políticas `none`, `quarantine` e `reject`;
 - recomendações práticas em linguagem simples;
 - identificação visual de provedores conhecidos;
+- comparação opcional com os registros DNS atualmente publicados;
 - suporte a relatórios de Google, Zoho, Microsoft, Yahoo e outros remetentes compatíveis;
 - leitura de `.xml`, `.xml.gz` e `.zip`;
 - temas claro e escuro com preferência salva;
@@ -48,8 +50,11 @@ Não é necessário iniciar um servidor local.
 2. Abra o arquivo `index.html` em um navegador moderno.
 3. Arraste um ou vários relatórios DMARC para a área indicada ou clique em **Escolher arquivos**.
 4. Consulte a visão consolidada, aplique filtros e abra os detalhes de cada relatório quando necessário.
+5. Se desejar comparar o período histórico com a configuração publicada agora, use **Verificar configuração DNS atual**.
 
 > Para descompactação no navegador, utilize uma versão recente do Chrome, Edge, Firefox ou Safari.
+
+O diagnóstico dos arquivos funciona offline. A verificação DNS é opcional e requer conexão com a internet.
 
 ## Formatos aceitos
 
@@ -81,6 +86,16 @@ Diagnóstico, filtros e ações recomendadas
 
 A lógica segue a estrutura padronizada dos relatórios agregados DMARC. O reconhecimento não depende do nome do arquivo nem de um provedor específico.
 
+## Comparação com o DNS atual
+
+Depois de processar os relatórios, o usuário pode solicitar uma consulta DNS atual para o domínio selecionado. O painel verifica:
+
+- a política publicada em `_dmarc.dominio` e a compara com o relatório mais recente;
+- a presença do registro SPF no domínio;
+- as chaves DKIM correspondentes aos seletores observados nos relatórios.
+
+A consulta utiliza o endpoint JSON do Google Public DNS diretamente no navegador e tenta a Cloudflare como alternativa, sem backend e sem chave de API. O resultado atual é apresentado separadamente dos dados históricos porque a configuração pode ter mudado depois do período do relatório.
+
 ## Provedores reconhecidos visualmente
 
 O painel possui identificação para provedores conhecidos, incluindo:
@@ -103,6 +118,9 @@ Provedores fora dessa lista continuam sendo analisados normalmente e recebem uma
 ```text
 painel-reporte-dominio/
 ├── index.html
+├── changelog.html
+├── CHANGELOG.md
+├── VERSION
 ├── assets/
 │   ├── css/
 │   │   ├── style.css
@@ -119,13 +137,19 @@ painel-reporte-dominio/
 
 Os relatórios usados durante o desenvolvimento não fazem parte do projeto. Arquivos `*.zip` e `*.xml.gz` são ignorados pelo Git para reduzir o risco de publicação acidental de dados reais.
 
+## Versionamento
+
+A versão atual é **1.0.0**. O projeto segue Versionamento Semântico e mantém o histórico em [CHANGELOG.md](CHANGELOG.md) e na página visual [changelog.html](changelog.html).
+
 ## Privacidade
 
 - a leitura e a descompactação acontecem na memória do navegador;
 - o conteúdo do XML não é transmitido;
 - não há cadastro, cookies de rastreamento ou banco de dados;
 - a preferência de tema é a única configuração salva localmente;
-- todos os recursos necessários ao painel são locais; nenhuma chamada externa é feita durante a análise.
+- todos os recursos necessários à análise dos arquivos são locais;
+- a consulta DNS externa ocorre somente após ação explícita no botão de verificação;
+- nessa consulta, são transmitidos ao Google Public DNS ou à Cloudflare apenas o domínio e os nomes derivados dos seletores DKIM; o conteúdo dos relatórios não é enviado.
 
 ## Tecnologias
 

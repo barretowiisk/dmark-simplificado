@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="Histórico de versões do DMARC Simplificado">
+  <title>Changelog · DMARC Simplificado</title>
+  <link rel="icon" href="assets/images/favicon.svg" type="image/svg+xml">
+  <script>document.documentElement.dataset.theme=localStorage.getItem("dmarc-theme")||(matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light")</script>
+  <link rel="stylesheet" href="assets/css/style.css">
+  <link rel="stylesheet" href="assets/css/theme.css">
+  <link rel="stylesheet" href="assets/css/changelog.css">
+</head>
+<body>
+  <div class="glow g1"></div><div class="glow g2"></div>
+  <header><a class="brand" href="index.html"><img class="brand-icon" src="assets/images/favicon.svg" alt=""> DMARC <b>Simplificado</b></a><div class="header-actions"><a class="back-link" href="index.html">← Voltar ao painel</a><button class="theme-toggle" id="themeToggle" type="button" aria-label="Alternar tema"><span class="sun">☀</span><span class="moon">☾</span></button></div></header>
+  <main class="changelog-page">
+    <section class="changelog-hero"><span class="kicker">EVOLUÇÃO DO PROJETO</span><h1>Histórico de versões</h1><p>Acompanhe as funcionalidades, melhorias de privacidade e decisões que constroem o DMARC Simplificado.</p><span class="current-version">Versão atual · 1.0.0</span></section>
+    <article class="release">
+      <aside><span class="release-tag">v1.0.0</span><time datetime="2026-11-01">1º de novembro de 2026</time><b>Primeira versão estável</b></aside>
+      <div class="release-content">
+        <section><h2>Leitura e análise</h2><ul><li>Suporte a XML, GZIP e ZIP.</li><li>Upload individual ou de até 100 relatórios por lote.</li><li>Consolidação ponderada, filtros, duplicidades e sobreposição de períodos.</li><li>Indicadores independentes para autenticação e política DMARC.</li></ul></section>
+        <section><h2>Comparação e diagnóstico</h2><ul><li>Detalhamento de DKIM, SPF, IPs e disposição aplicada.</li><li>Consulta DNS opcional para comparar DMARC, SPF e seletores DKIM atuais.</li><li>Google Public DNS com fallback para Cloudflare.</li><li>Orientações contextualizadas e glossário educativo.</li></ul></section>
+        <section><h2>Experiência e privacidade</h2><ul><li>Processamento local, sem backend, contas ou banco de dados.</li><li>Funcionamento offline para análise dos arquivos.</li><li>Temas claro e escuro, layout responsivo e identificação de provedores.</li><li>Identidade visual, favicon e documentação para publicação.</li></ul></section>
+      </div>
+    </article>
+    <section class="versioning-note"><h2>Como as versões funcionam</h2><p>Usamos o formato <b>MAJOR.MINOR.PATCH</b>: mudanças incompatíveis alteram o primeiro número, novas funcionalidades compatíveis alteram o segundo e correções alteram o terceiro.</p></section>
+  </main>
+  <footer><span>©2026 <a class="version-link" href="changelog.html" title="Ver histórico de versões">DMARC SIMPLIFICADO v1.0.0</a>. Todos os direitos reservados.</span><span>Powered by <a href="https://saobarreto.com.br" target="_blank" rel="noopener noreferrer">São Barreto Consultoria TI</a></span></footer>
+  <script src="assets/js/theme.js"></script>
+</body>
+</html>

@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="description" content="Leitor privado e simplificado de relatórios DMARC">
   <title>DMARC Simplificado</title>
+  <link rel="icon" href="assets/images/favicon.svg" type="image/svg+xml">
   <script>document.documentElement.dataset.theme=localStorage.getItem("dmarc-theme")||(matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light")</script>
   <link rel="stylesheet" href="assets/css/style.css">
   <link rel="stylesheet" href="assets/css/theme.css">
@@ -13,7 +14,7 @@
 <body>
   <div class="glow g1"></div><div class="glow g2"></div>
   <header>
-    <a class="brand" href="#"><i>◈</i> DMARC <b>Simplificado</b></a>
+    <a class="brand" href="#"><img class="brand-icon" src="assets/images/favicon.svg" alt=""> DMARC <b>Simplificado</b></a>
     <div class="header-actions"><span class="privacy"><i></i> Processamento 100% local</span><button class="theme-toggle" id="themeToggle" type="button" aria-label="Alternar tema"><span class="sun">☀</span><span class="moon">☾</span></button></div>
   </header>
   <main>
@@ -42,6 +43,17 @@
       </div>
       <article class="summary health-summary"><div class="health-indicators"><div><div class="score" id="authRing"><span><strong id="authValue">0</strong><small>%</small></span></div><small>Saúde da autenticação</small></div><div class="policy-indicator"><small>Nível da política DMARC</small><strong id="policyLevel">—</strong><div class="policy-track"><i id="policyBar"></i></div><span id="policyHint"></span></div></div><div><span class="badge" id="statusBadge"></span><h3 id="summaryTitle"></h3><p id="summaryText"></p></div><div class="domain"><small>Escopo analisado</small><b id="domainValue"></b><span id="periodValue"></span></div></article>
       <div class="metrics"><article><i>✉</i><small>Mensagens avaliadas</small><strong id="totalMessages"></strong><p>em todos os relatórios</p></article><article><i>✓</i><small>Autenticação aprovada</small><strong id="passRate"></strong><p>ponderada pelo volume</p></article><article><i>!</i><small>Fontes com atenção</small><strong id="attentionSources"></strong><p>combinações de IP e domínio</p></article><article><i>◈</i><small>Políticas encontradas</small><strong id="policyValue"></strong><p id="policyPercent"></p></article></div>
+      <article class="panel dns-panel">
+        <div class="dns-intro"><div class="panel-title"><i>⌁</i><div><small>COMPARAÇÃO OPCIONAL</small><h3>Configuração DNS atual</h3></div></div><p>Compare o relatório histórico com os registros publicados agora. A consulta só acontece quando você solicitar e requer conexão com a internet.</p></div>
+        <div class="dns-controls"><label>Domínio<select id="dnsDomainSelect"></select></label><button id="dnsCheck" type="button">Verificar configuração DNS atual</button></div>
+        <p class="dns-privacy">Ao continuar, somente os nomes DNS do domínio e dos seletores DKIM serão enviados ao Google Public DNS ou, como alternativa, à Cloudflare. O conteúdo dos relatórios não é transmitido.</p>
+        <div class="dns-status" id="dnsStatus" role="status" aria-live="polite"></div>
+        <div class="dns-results" id="dnsResults" hidden>
+          <article><span class="dns-type">DMARC</span><strong id="dnsDmarcTitle"></strong><p id="dnsDmarcText"></p><code id="dnsDmarcRecord"></code></article>
+          <article><span class="dns-type">SPF</span><strong id="dnsSpfTitle"></strong><p id="dnsSpfText"></p><code id="dnsSpfRecord"></code></article>
+          <article class="dns-dkim-card"><span class="dns-type">DKIM</span><strong id="dnsDkimTitle"></strong><p id="dnsDkimText"></p><div id="dnsDkimRecords"></div></article>
+        </div>
+      </article>
       <div class="columns"><article class="panel"><div class="panel-title"><i>◎</i><div><small>O QUE FAZER AGORA?</small><h3 id="actionTitle"></h3></div></div><div id="actionsList"></div></article><article class="panel"><div class="panel-title"><i>⌁</i><div><small>SOBRE OS RELATÓRIOS</small><h3>Quem enviou e quando</h3></div></div><div class="provider-summary" id="providerSummary"></div><dl id="reportMeta"></dl></article></div>
       <article class="panel sources">
         <div class="source-head"><div><span class="kicker">DETALHAMENTO TÉCNICO</span><h3>Fontes que enviaram mensagens</h3></div><span id="sourceCount"></span></div>
@@ -53,7 +65,8 @@
       <details class="panel glossary"><summary><span><b>?</b> O que significam DKIM, SPF e DMARC?</span><span>⌄</span></summary><div><p><b>SPF</b> lista quais servidores podem enviar e-mails pelo domínio.</p><p><b>DKIM</b> usa uma assinatura digital para comprovar origem e integridade.</p><p><b>DMARC</b> verifica o alinhamento e define o tratamento de falhas.</p></div></details>
     </section>
   </main>
-  <footer><span>©2026 DMARC SIMPLIFICADO. Todos os direitos reservados.</span><span>Powered by <a href="https://saobarreto.com.br" target="_blank" rel="noopener noreferrer">São Barreto Consultoria TI</a></span></footer>
+  <footer><span>©2026 <a class="version-link" href="changelog.html" title="Ver histórico de versões">DMARC SIMPLIFICADO v1.0.0</a>. Todos os direitos reservados.</span><span>Powered by <a href="https://saobarreto.com.br" target="_blank" rel="noopener noreferrer">São Barreto Consultoria TI</a></span></footer>
+  <script src="assets/js/theme.js"></script>
   <script src="assets/js/provider.js"></script>
   <script src="assets/js/app.js"></script>
 </body>

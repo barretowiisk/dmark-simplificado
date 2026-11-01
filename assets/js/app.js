@@ -16,17 +16,6 @@ let overlapTotal = 0;
 const dropZone = $("#dropZone");
 const fileInput = $("#fileInput");
 const errorMessage = $("#errorMessage");
-const themeToggle = $("#themeToggle");
-
-function setTheme(theme) {
-  document.documentElement.dataset.theme = theme;
-  localStorage.setItem("dmarc-theme", theme);
-  themeToggle.setAttribute("aria-label", theme === "dark" ? "Ativar tema claro" : "Ativar tema escuro");
-  themeToggle.title = themeToggle.getAttribute("aria-label");
-}
-setTheme(document.documentElement.dataset.theme || "light");
-themeToggle.addEventListener("click", () => setTheme(document.documentElement.dataset.theme === "dark" ? "light" : "dark"));
-
 dropZone.addEventListener("dragover", (event) => { event.preventDefault(); dropZone.classList.add("drag"); });
 dropZone.addEventListener("dragleave", () => dropZone.classList.remove("drag"));
 dropZone.addEventListener("drop", (event) => {
@@ -43,6 +32,7 @@ $("#clearFilters").addEventListener("click", () => {
   applyFilters();
 });
 ["#domainFilter", "#providerFilter", "#statusFilter"].forEach((selector) => $(selector).addEventListener("change", applyFilters));
+$("#dnsCheck").addEventListener("click", checkCurrentDns);
 
 async function processFiles(files) {
   hideError();
@@ -138,7 +128,12 @@ function parseReport(xml, file) {
       count: Number(value(query(record, "row > count"), "0")),
       dkim: value(query(evaluated, "dkim"), "fail").toLowerCase(),
       spf: value(query(evaluated, "spf"), "fail").toLowerCase(),
-      disposition: value(query(evaluated, "disposition"), "none").toLowerCase()
+      disposition: value(query(evaluated, "disposition"), "none").toLowerCase(),
+      dkimAuth: all(record, "auth_results > dkim").map((item) => ({
+        domain: value(query(item, "domain"), ""),
+        selector: value(query(item, "selector"), ""),
+        result: value(query(item, "result"), "").toLowerCase()
+      })).filter((item) => item.domain && item.selector)
     };
   });
   return {
@@ -198,6 +193,7 @@ function renderDashboard() {
   renderProviderSummary(providers);
   $("#reportMeta").innerHTML = [["Arquivos válidos", reports.length], ["Duplicados ignorados", duplicateTotal], ["Arquivos com erro", rejectedTotal], ["Volume selecionado", formatBytes(sum(reports.map((report) => report.size)))]].map(([label, item]) => `<dt>${escapeHtml(label)}</dt><dd>${escapeHtml(item)}</dd>`).join("");
   fillFilters(domains, providers);
+  fillDnsDomains(domains);
   renderSourceRows(records);
   renderReportList(reports);
   $("#results").hidden = false;
@@ -234,6 +230,123 @@ function fillFilters(domains, providers) {
   setOptions($("#providerFilter"), providers.map((org) => [org, getProviderInfo(org).name]));
   $("#statusFilter").value = "";
 }
+
+function fillDnsDomains(domains) {
+  $("#dnsDomainSelect").innerHTML = domains.map((domain) => `<option value="${escapeHtml(domain)}">${escapeHtml(domain)}</option>`).join("");
+  $("#dnsStatus").textContent = "";
+  $("#dnsResults").hidden = true;
+}
+
+async function checkCurrentDns() {
+  const domain = $("#dnsDomainSelect").value;
+  if (!isDnsName(domain)) return;
+  const button = $("#dnsCheck");
+  button.disabled = true;
+  button.textContent = "Consultando DNS…";
+  $("#dnsResults").hidden = true;
+  $("#dnsStatus").className = "dns-status loading";
+  $("#dnsStatus").textContent = `Consultando os registros atuais de ${domain}…`;
+  try {
+    const domainReports = reports.filter((report) => report.domain === domain);
+    const latest = [...domainReports].sort((a, b) => b.end - a.end)[0];
+    const selectors = uniqueDkimSelectors(domainReports);
+    const [dmarcResponse, spfResponse, dkimResponses] = await Promise.all([
+      queryDns(`_dmarc.${domain}`, "TXT"),
+      queryDns(domain, "TXT"),
+      Promise.all(selectors.map(async (item) => ({ ...item, response: await queryDns(`${item.selector}._domainkey.${item.domain}`, "TXT") })))
+    ]);
+    renderDnsComparison(domain, latest, dmarcResponse, spfResponse, dkimResponses);
+    $("#dnsResults").hidden = false;
+    $("#dnsStatus").className = "dns-status success";
+    $("#dnsStatus").textContent = `Consulta concluída em ${new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" }).format(new Date())}.`;
+  } catch (error) {
+    console.error("Falha na consulta DNS:", error);
+    $("#dnsStatus").className = "dns-status error";
+    $("#dnsStatus").textContent = navigator.onLine
+      ? "Os resolvedores DNS não responderam ou a conexão foi bloqueada pelo navegador. Recarregue a página e tente novamente."
+      : "Você está offline. O relatório continua disponível, mas a comparação DNS requer internet.";
+  } finally {
+    button.disabled = false;
+    button.textContent = "Verificar configuração DNS atual";
+  }
+}
+
+async function queryDns(name, type) {
+  if (!isDnsName(name)) throw new Error("Nome DNS inválido");
+  const resolvers = [
+    { name: "Google Public DNS", url: "https://dns.google/resolve", headers: {} },
+    { name: "Cloudflare DNS", url: "https://cloudflare-dns.com/dns-query", headers: { accept: "application/dns-json" } }
+  ];
+  let lastError;
+  for (const resolver of resolvers) {
+    try {
+      const url = new URL(resolver.url);
+      url.searchParams.set("name", name);
+      url.searchParams.set("type", type);
+      const response = await fetchWithTimeout(url, { headers: resolver.headers }, 10000);
+      if (!response.ok) throw new Error(`${resolver.name}: HTTP ${response.status}`);
+      const payload = await response.json();
+      return { resolver: resolver.name, status: payload.Status, answers: (payload.Answer || []).filter((answer) => answer.type === 16).map((answer) => normalizeTxt(answer.data)) };
+    } catch (error) {
+      lastError = error;
+    }
+  }
+  throw lastError || new Error("Nenhum resolvedor DNS respondeu");
+}
+
+async function fetchWithTimeout(url, options, timeout) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeout);
+  try { return await fetch(url, { ...options, signal: controller.signal }); }
+  finally { clearTimeout(timer); }
+}
+
+function renderDnsComparison(domain, latest, dmarcResponse, spfResponse, dkimResponses) {
+  const dmarc = dmarcResponse.answers.find((record) => /^v=DMARC1\b/i.test(record));
+  const spf = spfResponse.answers.find((record) => /^v=spf1\b/i.test(record));
+  const currentPolicy = dmarc ? readDnsTag(dmarc, "p") : "";
+  const currentPercent = dmarc ? readDnsTag(dmarc, "pct") || "100" : "";
+  const samePolicy = dmarc && latest && currentPolicy === latest.policy && Number(currentPercent) === latest.percentage;
+
+  setDnsCard("#dnsDmarcTitle", "#dnsDmarcText", "#dnsDmarcRecord", dmarc
+    ? [samePolicy ? "Sem alteração desde o relatório" : "Configuração diferente do relatório", latest ? `Atual: ${policyName[currentPolicy] || currentPolicy} em ${currentPercent}%. Relatório mais recente: ${policyName[latest.policy] || latest.policy} em ${latest.percentage}%.` : "Registro DMARC encontrado.", dmarc, samePolicy ? "ok" : "warn"]
+    : ["Registro DMARC não encontrado", `Não foi localizado um TXT válido em _dmarc.${domain}.`, "", "error"]);
+
+  setDnsCard("#dnsSpfTitle", "#dnsSpfText", "#dnsSpfRecord", spf
+    ? ["Registro SPF publicado", "O domínio possui uma política SPF atual. A existência do registro não garante que todas as fontes estejam autorizadas.", spf, "ok"]
+    : ["Registro SPF não encontrado", "Não foi localizado um TXT iniciado por v=spf1 no domínio.", "", "warn"]);
+
+  const validDkim = dkimResponses.filter((item) => item.response.answers.some((record) => /\bv=DKIM1\b|\bp=/i.test(record)));
+  $("#dnsDkimTitle").textContent = dkimResponses.length ? `${validDkim.length} de ${dkimResponses.length} seletores encontrados` : "Nenhum seletor disponível";
+  $("#dnsDkimText").textContent = dkimResponses.length ? "A consulta usa os seletores observados nos relatórios enviados." : "Os relatórios não informaram seletores DKIM que pudessem ser consultados.";
+  const list = $("#dnsDkimRecords");
+  list.innerHTML = dkimResponses.map((item) => {
+    const found = item.response.answers.some((record) => /\bv=DKIM1\b|\bp=/i.test(record));
+    return `<span class="dns-selector ${found ? "ok" : "missing"}"><b>${escapeHtml(item.selector)}</b><small>${found ? "chave publicada" : "não encontrado"}</small></span>`;
+  }).join("");
+  list.closest("article").className = `dns-dkim-card ${!dkimResponses.length ? "neutral" : validDkim.length === dkimResponses.length ? "dns-ok" : "dns-warn"}`;
+}
+
+function setDnsCard(titleSelector, textSelector, recordSelector, [title, text, record, state]) {
+  $(titleSelector).textContent = title;
+  $(textSelector).textContent = text;
+  $(recordSelector).textContent = record;
+  $(recordSelector).hidden = !record;
+  $(titleSelector).closest("article").className = `dns-${state}`;
+}
+
+function uniqueDkimSelectors(items) {
+  const unique = new Map();
+  items.flatMap((report) => report.records.flatMap((record) => record.dkimAuth || [])).forEach((item) => {
+    const key = `${item.selector}._domainkey.${item.domain}`.toLowerCase();
+    if (isDnsName(key)) unique.set(key, item);
+  });
+  return [...unique.values()].slice(0, 20);
+}
+
+function normalizeTxt(text) { return String(text || "").replace(/^"|"$/g, "").replace(/"\s*"/g, ""); }
+function readDnsTag(record, tag) { return record.split(";").map((part) => part.trim()).find((part) => part.toLowerCase().startsWith(`${tag.toLowerCase()}=`))?.split("=").slice(1).join("=").trim().toLowerCase() || ""; }
+function isDnsName(name) { return /^(?=.{1,253}\.?$)(?:[a-z0-9_](?:[a-z0-9_-]{0,61}[a-z0-9_])?\.)*[a-z0-9_](?:[a-z0-9_-]{0,61}[a-z0-9_])?\.?$/i.test(name); }
 
 function setOptions(select, options) {
   select.innerHTML = '<option value="">Todos</option>' + options.map(([itemValue, label]) => `<option value="${escapeHtml(itemValue)}">${escapeHtml(label)}</option>`).join("");
